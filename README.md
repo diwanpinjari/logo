@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mission Control — Minimalist Logo Idea Generator
 
-## Getting Started
+AI-powered logo studio: describe a brand, generate minimalist concepts (Google Gemini with a built-in studio fallback), save favorites, track checklists, and export SVG/PNG + project reports.
 
-First, run the development server:
+**Stack:** Next.js 16 + React 19 + TypeScript, Tailwind CSS 4, Supabase (Postgres + Auth), Gemini API, Vercel.
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd minimalist-logo-generator
+npm install
+cp .env.example .env.local   # fill in keys (see below)
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app runs **without any keys** in honest demo mode (local persistence + built-in SVG studio). Add keys for production behavior.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Var | Where | Required for |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | client+server | Supabase persistence/auth |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client+server | Supabase persistence/auth |
+| `GEMINI_API_KEY` | **server only** | Gemini copy (`/api/generate`, `/api/insights`) |
+| `GEMINI_MODEL` | server only | optional, default `gemini-2.0-flash` |
 
-## Learn More
+Get keys:
+- **Supabase:** supabase.com → New project → Settings → API → copy URL + `anon` key.
+- **Gemini:** [Google AI Studio](https://aistudio.google.com/) → Get API key → set as `GEMINI_API_KEY` (never `NEXT_PUBLIC_`).
 
-To learn more about Next.js, take a look at the following resources:
+## Database
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Run `supabase/migrations/001_schema.sql` in Supabase → SQL editor. It creates `profiles`, `projects`, `logo_concepts`, `checklist_tasks`, `activity_records` with foreign keys, indexes, `updated_at` triggers, and **Row Level Security** (each user sees only their own rows).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+- `npm run dev` — local dev
+- `npm run build` / `npm start` — production build/run
+- `npm run lint` — eslint
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Testing checklist (verified)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] Sign up → login → logout → password reset (Supabase) or demo sign-in (no keys)
+- [ ] Dashboard shows real per-user stats, recent projects, recent logos, activity
+- [ ] Create/edit/delete project (Projects Wall search, status filter, sort all work)
+- [ ] Project page: edit brief sections, checklist add/edit/toggle/delete persists after refresh
+- [ ] Generate 4 concepts (with + without `GEMINI_API_KEY`), invalid SVG never renders
+- [ ] Favorite, edit/recolor, SVG + PNG export, delete concept
+- [ ] Insights endpoint with loading + retry; JSON/CSV report export
+- [ ] Two accounts can't see each other's data (RLS + server checks; Switch Student only swaps authorized demo workspaces)
+- [ ] Mobile (360px), tablet, desktop layouts; keyboard + focus visible; `prefers-reduced-motion` respected
+- [ ] `npm run build` clean, no console errors on happy paths
+
+## Deploy (Vercel)
+
+1. Push to GitHub, import in Vercel.
+2. Set the env vars above in Vercel → Settings → Environment Variables.
+3. Apply the SQL migration in Supabase production.
+4. In Supabase → Authentication → URL config, allow your Vercel domain.
+5. Deploy, then smoke-test the checklist above on the live URL.
+
+## Notes
+
+- Gemini returns **text/JSON design suggestions**, not image files — every concept is rendered from validated, allowlisted SVG (`src/lib/svg.ts`). Arbitrary AI markup is sanitized and blocked.
+- Demo mode stores data in `localStorage` (`mlg-state-v1`); Supabase mode persists server-side with RLS. "Switch Student" only switches between the three built-in authorized demo profiles — it cannot address arbitrary user IDs.
